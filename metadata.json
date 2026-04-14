@@ -1,0 +1,6 @@
+{
+  "name": "Remix: InsightFlow AI",
+  "description": "AI-powered dynamic data analysis dashboard. Upload Excel/CSV files for instant insights and visualizations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
