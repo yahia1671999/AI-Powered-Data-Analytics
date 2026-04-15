@@ -47,26 +47,69 @@ export function analyzeColumns(data: DataRecord[]): ColumnMetadata[] {
   
   const firstRow = data[0];
   const columns: ColumnMetadata[] = [];
+  
+  // Use a sample for metadata analysis if the dataset is large
+  const sampleSize = Math.min(data.length, 1000);
+  const sampleData = data.slice(0, sampleSize);
 
   Object.keys(firstRow).forEach(key => {
+    if (key === '_sheetName') return; // Skip internal field
+
     const val = firstRow[key];
     let type: ColumnMetadata['type'] = 'string';
     
     if (typeof val === 'number') type = 'number';
     else if (typeof val === 'boolean') type = 'boolean';
     else if (val instanceof Date || !isNaN(Date.parse(val))) {
-      // Check if it's a date string
       if (typeof val === 'string' && val.length > 5 && !isNaN(Date.parse(val))) {
          type = 'date';
       }
     }
 
-    // Heuristic for categorical: string with relatively few unique values
-    const uniqueValues = new Set(data.map(row => row[key])).size;
-    const isCategorical = type === 'string' && uniqueValues < data.length * 0.5 && uniqueValues < 20;
+    // Heuristic for categorical: string with relatively few unique values in the sample
+    const uniqueValues = new Set(sampleData.map(row => row[key])).size;
+    const isCategorical = type === 'string' && uniqueValues < sampleSize * 0.5 && uniqueValues < 30;
 
     columns.push({ name: key, type, isCategorical });
   });
 
   return columns;
+}
+
+export function generateDataSummary(data: DataRecord[], columns: ColumnMetadata[]): string {
+  const summary: any = {
+    totalRows: data.length,
+    columns: columns.map(col => {
+      const colData = data.map(r => r[col.name]).filter(v => v !== null && v !== undefined);
+      
+      if (col.type === 'number') {
+        const nums = colData.map(Number).filter(n => !isNaN(n));
+        return {
+          name: col.name,
+          type: 'number',
+          min: Math.min(...nums),
+          max: Math.max(...nums),
+          avg: nums.reduce((a, b) => a + b, 0) / nums.length
+        };
+      } else if (col.isCategorical) {
+        const counts: Record<string, number> = {};
+        colData.forEach(v => {
+          const s = String(v);
+          counts[s] = (counts[s] || 0) + 1;
+        });
+        const topValues = Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([val, count]) => `${val} (${count})`);
+        return {
+          name: col.name,
+          type: 'categorical',
+          topValues
+        };
+      }
+      return { name: col.name, type: col.type };
+    })
+  };
+  
+  return JSON.stringify(summary, null, 2);
 }

@@ -46,7 +46,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 
 import { DataRecord, ColumnMetadata, DashboardConfig } from './types';
-import { parseFile, analyzeColumns } from './lib/parser';
+import { parseFile, analyzeColumns, generateDataSummary } from './lib/parser';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e'];
 
@@ -75,7 +75,8 @@ export default function App() {
       setColumns(colMetadata);
       
       // Use Gemini to generate a dashboard config
-      await generateDashboardConfig(colMetadata, parsedData.slice(0, 5));
+      const summary = generateDataSummary(parsedData, colMetadata);
+      await generateDashboardConfig(colMetadata, summary);
       
       toast.success(`Successfully loaded ${parsedData.length} rows.`);
     } catch (error) {
@@ -96,12 +97,18 @@ export default function App() {
     multiple: false
   } as any);
 
-  const generateDashboardConfig = async (cols: ColumnMetadata[], sample: DataRecord[]) => {
+  const generateDashboardConfig = async (cols: ColumnMetadata[], summary: string) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+      
+      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+        throw new Error("API_KEY_MISSING");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = `
         I have a dataset with the following columns: ${JSON.stringify(cols)}.
-        Here is a sample of the data: ${JSON.stringify(sample)}.
+        Here is a summary of the data: ${summary}.
         
         Please suggest a dashboard configuration in JSON format.
         The configuration should include:
@@ -113,7 +120,8 @@ export default function App() {
            - yAxis: a numeric column name to aggregate (sum)
            - title: a descriptive title for the chart
         4. A "writtenAnalysis" field: Provide a professional, deep written analysis of the data in Arabic. 
-           Identify trends, anomalies, and provide actionable recommendations based on the sample data provided.
+           Identify trends, anomalies, and provide actionable recommendations based on the summary provided.
+           The analysis should be thorough and insightful.
         
         Return ONLY the JSON object matching the DashboardConfig interface.
       `;
@@ -150,8 +158,15 @@ export default function App() {
 
       const configJson = JSON.parse(response.text);
       setConfig(configJson);
-    } catch (error) {
-      console.error("AI Analysis failed, using fallback config", error);
+    } catch (error: any) {
+      console.error("AI Analysis failed", error);
+      
+      if (error.message === "API_KEY_MISSING") {
+        toast.error("Gemini API Key is missing. Please configure it in the settings or .env file.");
+      } else {
+        toast.error("AI analysis failed. Using fallback layout.");
+      }
+
       // Fallback: simple heuristic
       const numericCols = cols.filter(c => c.type === 'number').map(c => c.name);
       const categoricalCols = cols.filter(c => c.isCategorical).map(c => c.name);
