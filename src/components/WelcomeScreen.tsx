@@ -36,6 +36,71 @@ export function WelcomeScreen({ onEnter }: WelcomeScreenProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#020617] text-slate-50 font-sans">
+      {/* Neural Cells & Synapses Background */}
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <svg className="w-full h-full">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {/* Neural Connections */}
+          {[...Array(20)].map((_, i) => {
+            const x1 = Math.random() * 100 + "%";
+            const y1 = Math.random() * 100 + "%";
+            const x2 = Math.random() * 100 + "%";
+            const y2 = Math.random() * 100 + "%";
+            return (
+              <motion.line
+                key={`line-${i}`}
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke="rgba(37, 99, 235, 0.15)"
+                strokeWidth="0.5"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ 
+                  pathLength: [0, 1, 0], 
+                  opacity: [0, 0.3, 0],
+                  stroke: ["rgba(37, 99, 235, 0.1)", "rgba(6, 182, 212, 0.3)", "rgba(37, 99, 235, 0.1)"]
+                }}
+                transition={{ 
+                  duration: 4 + Math.random() * 4, 
+                  repeat: Infinity, 
+                  ease: "easeInOut",
+                  delay: Math.random() * 5
+                }}
+              />
+            );
+          })}
+          {/* Neural Nodes (Cells) */}
+          {[...Array(30)].map((_, i) => (
+            <motion.circle
+              key={`node-${i}`}
+              cx={Math.random() * 100 + "%"}
+              cy={Math.random() * 100 + "%"}
+              r={Math.random() * 2 + 1}
+              fill="rgba(6, 182, 212, 0.5)"
+              filter="url(#glow)"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ 
+                scale: [1, 1.5, 1], 
+                opacity: [0.1, 0.8, 0.1],
+                fill: ["#2563eb", "#06b6d4", "#2563eb"]
+              }}
+              transition={{ 
+                duration: 2 + Math.random() * 3, 
+                repeat: Infinity, 
+                ease: "easeInOut",
+                delay: Math.random() * 5
+              }}
+            />
+          ))}
+        </svg>
+      </div>
+
       {/* HUD Backdrop */}
       <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       
