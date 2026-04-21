@@ -84,7 +84,7 @@ export default function App() {
       setData(parsedData);
       setColumns(colMetadata);
       
-      // Use Gemini to generate a dashboard config
+      // Use MMK to generate a dashboard config
       const summary = generateDataSummary(parsedData, colMetadata);
       await generateDashboardConfig(colMetadata, summary);
       
@@ -369,8 +369,8 @@ export default function App() {
               </h2>
               <p className="text-muted-foreground max-w-md">
                 {language === 'ar' 
-                  ? 'يقوم Gemini بمعالجة ملفك وتصميم أفضل لوحة تحكم لرؤاك.' 
-                  : 'Gemini is processing your file and designing the best dashboard for your insights.'}
+                  ? 'يقوم MMK بمعالجة ملفك وتصميم أفضل لوحة تحكم لرؤاك.' 
+                  : 'MMK is processing your file and designing the best dashboard for your insights.'}
               </p>
             </motion.div>
           ) : data.length === 0 ? (
@@ -588,8 +588,8 @@ export default function App() {
                             <h4 className="font-bold text-amber-900 dark:text-amber-400 mb-2">{language === 'ar' ? 'ذكاء اصطناعي' : 'AI Powered'}</h4>
                             <p className="text-sm text-foreground/70">
                               {language === 'ar' 
-                                ? 'معالجة متقدمة للبيانات باستخدام نماذج Gemini الحديثة.' 
-                                : 'Advanced data processing using modern Gemini models.'}
+                                ? 'معالجة متقدمة للبيانات باستخدام نماذج MMK الحديثة.' 
+                                : 'Advanced data processing using modern MMK models.'}
                             </p>
                           </div>
                         </div>
@@ -661,7 +661,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
             <BrainCircuit className="h-4 w-4" />
-            <span>{language === 'ar' ? 'بدعم من ذكاء Gemini' : 'Powered by Gemini AI'}</span>
+            <span>{language === 'ar' ? 'بدعم من ذكاء MMK' : 'Powered by MMK AI'}</span>
           </div>
           <p dir="ltr">&copy; 2026 {t('appTitle')} Analytics. All rights reserved.</p>
         </div>
