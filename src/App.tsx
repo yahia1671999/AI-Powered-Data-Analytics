@@ -107,9 +107,13 @@ export default function App() {
 
   const generateDashboardConfig = async (cols: ColumnMetadata[], summary: string) => {
     try {
-      const apiKey = (process.env as any).GEMINI_API_KEY;
+      // Detection logic for both AI Studio and external hosting like Vercel
+      const apiKey = 
+        (process.env as any).GEMINI_API_KEY || 
+        (import.meta as any).env.VITE_GEMINI_API_KEY ||
+        (process.env as any).VITE_GEMINI_API_KEY;
       
-      if (!apiKey) {
+      if (!apiKey || apiKey === "") {
         throw new Error("GEMINI_API_KEY_MISSING");
       }
 
