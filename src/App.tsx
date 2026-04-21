@@ -107,7 +107,7 @@ export default function App() {
     multiple: false
   } as any);
 
-  const generateDashboardConfig = async (cols: ColumnMetadata[], summary: string) => {
+  const generateDashboardConfig = async (cols: ColumnMetadata[], summary: string, retryCount = 0) => {
     try {
       // Detection logic for both AI Studio and external hosting like Vercel
       const apiKey = 
@@ -174,6 +174,22 @@ export default function App() {
     } catch (error: any) {
       console.error("AI Analysis failed", error);
       
+      // Handle 503 Overload with automatic retry
+      if (error.status === 503 || error.message?.includes("503") || error.message?.includes("high demand")) {
+        if (retryCount < 2) {
+          const delay = (retryCount + 1) * 2000;
+          console.log(`Model overloaded. Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          return generateDashboardConfig(cols, summary, retryCount + 1);
+        }
+        
+        const overLoadMsg = language === 'ar' 
+          ? "الخادم مضغوط حالياً بسبب الطلب العالي على الذكاء الاصطناعي. يرجى المحاولة مرة أخرى بعد دقيقة." 
+          : "The AI server is currently overloaded due to high demand. Please try again in a minute.";
+        toast.error(overLoadMsg);
+        throw new Error("AI_OVERLOADED");
+      }
+
       let errorMsg = error.message;
       if (errorMsg === "GEMINI_API_KEY_MISSING") {
         errorMsg = language === 'ar' ? "مفتاح API مفقود. يرجى التحقق من لوحة Secrets." : "API Key is missing. Please check the Secrets panel.";
