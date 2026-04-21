@@ -40,7 +40,7 @@ import {
 } from 'recharts';
 import { useDropzone } from 'react-dropzone';
 import { GoogleGenAI, Type } from "@google/genai";
-
+// AI logic moved back to client per skill guidelines
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -108,8 +108,9 @@ export default function App() {
   const generateDashboardConfig = async (cols: ColumnMetadata[], summary: string) => {
     try {
       const apiKey = (process.env as any).GEMINI_API_KEY;
+      
       if (!apiKey) {
-        throw new Error("GEMINI_API_KEY is not configured. Please check the Secrets panel.");
+        throw new Error("GEMINI_API_KEY_MISSING");
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -159,11 +160,22 @@ export default function App() {
         }
       });
 
-      const configJson = JSON.parse(response.text || '{}');
+      const text = response.text;
+      if (!text) throw new Error("EMPTY_RESPONSE");
+      
+      const configJson = JSON.parse(text);
       setConfig(configJson);
     } catch (error: any) {
       console.error("AI Analysis failed", error);
-      toast.error(`AI analysis failed: ${error.message}`);
+      
+      let errorMsg = error.message;
+      if (errorMsg === "GEMINI_API_KEY_MISSING") {
+        errorMsg = language === 'ar' ? "مفتاح API مفقود. يرجى التحقق من لوحة Secrets." : "API Key is missing. Please check the Secrets panel.";
+      } else if (errorMsg.includes("API key not valid")) {
+        errorMsg = language === 'ar' ? "مفتاح API غير صالح. يرجى التأكد من كتابة المفتاح بشكل صحيح في لوحة Secrets." : "Invalid API Key. Please ensure the key in the Secrets panel is correct.";
+      }
+      
+      toast.error(`${t('errorAnalysisFailed', { error: errorMsg })}`);
 
       // Fallback: simple heuristic
       const numericCols = cols.filter(c => c.type === 'number').map(c => c.name);
