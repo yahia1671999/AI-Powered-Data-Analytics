@@ -51,6 +51,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 
 import { DataRecord, ColumnMetadata, DashboardConfig } from './types';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { parseFile, analyzeColumns, generateDataSummary } from './lib/parser';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e'];
@@ -59,6 +60,7 @@ export default function App() {
   const { theme, setTheme } = useTheme();
   const { t, language, setLanguage, isRtl } = useTranslation();
   
+  const [userName, setUserName] = useState<string | null>(() => localStorage.getItem('mmk_user_name'));
   const [data, setData] = useState<DataRecord[]>([]);
   const [columns, setColumns] = useState<ColumnMetadata[]>([]);
   const [config, setConfig] = useState<DashboardConfig | null>(null);
@@ -241,6 +243,22 @@ export default function App() {
     toast.info("Data cleared.");
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('mmk_user_name');
+    setUserName(null);
+    setData([]);
+    setColumns([]);
+    setConfig(null);
+  };
+
+  if (!userName) {
+    return <WelcomeScreen onEnter={(name) => {
+      localStorage.setItem('mmk_user_name', name);
+      setUserName(name);
+      toast.success(language === 'ar' ? `مرحباً بك، ${name}` : `Welcome, ${name}`);
+    }} />;
+  }
+
   return (
     <div className={`min-h-screen flex flex-col bg-background transition-colors duration-300 ${isRtl ? 'font-sans' : ''}`}>
       <Toaster position="top-right" />
@@ -258,8 +276,26 @@ export default function App() {
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-1 bg-muted p-1 rounded-lg">
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-[10px] uppercase font-mono text-muted-foreground opacity-70">Operator</span>
+                <span className="text-sm font-black text-blue-500 tracking-tight leading-tight">{userName}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleLogout}
+                  className="rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  title="Logout"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+                
+                <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+
+                <div className="hidden md:flex items-center gap-1 bg-muted p-1 rounded-lg">
                 <Button 
                   variant={language === 'en' ? 'secondary' : 'ghost'} 
                   size="sm" 
@@ -282,9 +318,19 @@ export default function App() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="rounded-lg text-muted-foreground"
+                className="rounded-lg text-muted-foreground flex items-center gap-2 w-auto px-3"
               >
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="h-5 w-5" />
+                    <span className="text-xs font-medium hidden lg:inline">{t('dayMode')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="h-5 w-5" />
+                    <span className="text-xs font-medium hidden lg:inline">{t('nightMode')}</span>
+                  </>
+                )}
               </Button>
 
               {data.length > 0 && (
@@ -301,7 +347,8 @@ export default function App() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
+    </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
@@ -322,8 +369,8 @@ export default function App() {
               </h2>
               <p className="text-muted-foreground max-w-md">
                 {language === 'ar' 
-                  ? 'يقوم MMK بمعالجة ملفك وتصميم أفضل لوحة تحكم لرؤاك.' 
-                  : 'MMK is processing your file and designing the best dashboard for your insights.'}
+                  ? 'يقوم Gemini بمعالجة ملفك وتصميم أفضل لوحة تحكم لرؤاك.' 
+                  : 'Gemini is processing your file and designing the best dashboard for your insights.'}
               </p>
             </motion.div>
           ) : data.length === 0 ? (
@@ -541,8 +588,8 @@ export default function App() {
                             <h4 className="font-bold text-amber-900 dark:text-amber-400 mb-2">{language === 'ar' ? 'ذكاء اصطناعي' : 'AI Powered'}</h4>
                             <p className="text-sm text-foreground/70">
                               {language === 'ar' 
-                                ? 'معالجة متقدمة للبيانات باستخدام نماذج MMK الحديثة.' 
-                                : 'Advanced data processing using modern MMK models.'}
+                                ? 'معالجة متقدمة للبيانات باستخدام نماذج Gemini الحديثة.' 
+                                : 'Advanced data processing using modern Gemini models.'}
                             </p>
                           </div>
                         </div>
@@ -614,7 +661,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
             <BrainCircuit className="h-4 w-4" />
-            <span>{language === 'ar' ? 'بدعم من ذكاء MMK' : 'Powered by MMK AI'}</span>
+            <span>{language === 'ar' ? 'بدعم من ذكاء Gemini' : 'Powered by Gemini AI'}</span>
           </div>
           <p dir="ltr">&copy; 2026 {t('appTitle')} Analytics. All rights reserved.</p>
         </div>

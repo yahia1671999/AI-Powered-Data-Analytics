@@ -31,6 +31,8 @@ const translations: Translations = {
   avg: { en: 'Avg', ar: 'المتوسط' },
   rowsPerPage: { en: 'Rows per page', ar: 'عدد الصفوف في الصفحة' },
   of: { en: 'of', ar: 'من' },
+  nightMode: { en: 'Night Mode', ar: 'وضع الليل' },
+  dayMode: { en: 'Day Mode', ar: 'وضع النهار' },
 };
 
 interface LanguageContextType {
