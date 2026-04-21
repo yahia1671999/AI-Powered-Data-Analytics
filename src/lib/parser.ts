@@ -80,34 +80,51 @@ export function generateDataSummary(data: DataRecord[], columns: ColumnMetadata[
   const summary: any = {
     totalRows: data.length,
     columns: columns.map(col => {
-      const colData = data.map(r => r[col.name]).filter(v => v !== null && v !== undefined);
+      const colData = data.map(r => r[col.name]).filter(v => v !== null && v !== undefined && v !== '');
+      const nullCount = data.length - colData.length;
       
       if (col.type === 'number') {
-        const nums = colData.map(Number).filter(n => !isNaN(n));
+        const nums = colData.map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+        if (nums.length === 0) return { name: col.name, type: 'number', nullCount };
+
+        const sum = nums.reduce((a, b) => a + b, 0);
+        const avg = sum / nums.length;
+        const median = nums[Math.floor(nums.length / 2)];
+        
+        // Standard Deviation
+        const squareDiffs = nums.map(n => Math.pow(n - avg, 2));
+        const stdDev = Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / nums.length);
+
         return {
           name: col.name,
           type: 'number',
-          min: Math.min(...nums),
-          max: Math.max(...nums),
-          avg: nums.reduce((a, b) => a + b, 0) / nums.length
+          min: nums[0],
+          max: nums[nums.length - 1],
+          avg: avg.toFixed(2),
+          median: median.toFixed(2),
+          stdDev: stdDev.toFixed(2),
+          nullCount
         };
-      } else if (col.isCategorical) {
+      } else if (col.isCategorical || col.type === 'string') {
         const counts: Record<string, number> = {};
         colData.forEach(v => {
           const s = String(v);
           counts[s] = (counts[s] || 0) + 1;
         });
-        const topValues = Object.entries(counts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([val, count]) => `${val} (${count})`);
+        const sortedEntries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const topValues = sortedEntries
+          .slice(0, 8)
+          .map(([val, count]) => `${val} (${count} occurrences, ${((count/data.length)*100).toFixed(1)}%)`);
+        
         return {
           name: col.name,
-          type: 'categorical',
-          topValues
+          type: col.isCategorical ? 'categorical' : 'string',
+          uniqueCount: sortedEntries.length,
+          topValues,
+          nullCount
         };
       }
-      return { name: col.name, type: col.type };
+      return { name: col.name, type: col.type, nullCount };
     })
   };
   

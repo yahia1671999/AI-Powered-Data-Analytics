@@ -99,31 +99,24 @@ export default function App() {
 
   const generateDashboardConfig = async (cols: ColumnMetadata[], summary: string) => {
     try {
-      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-        throw new Error("API_KEY_MISSING");
+      const apiKey = (process.env as any).GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("GEMINI_API_KEY is not configured. Please check the Secrets panel.");
       }
 
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `
+        You are a Senior Data Scientist and Business Analyst. 
         I have a dataset with the following columns: ${JSON.stringify(cols)}.
-        Here is a summary of the data: ${summary}.
+        Here is a detailed statistical summary of the data: ${summary}.
         
-        Please suggest a dashboard configuration in JSON format.
-        The configuration should include:
-        1. A descriptive title for the dashboard.
-        2. Up to 4 KPI columns (numeric columns that represent totals or averages).
-        3. Up to 4 charts. Each chart needs:
-           - type: 'bar', 'line', or 'pie'
-           - xAxis: a categorical or date column name
-           - yAxis: a numeric column name to aggregate (sum)
-           - title: a descriptive title for the chart
-        4. A "writtenAnalysis" field: Provide a professional, deep written analysis of the data in Arabic. 
-           Identify trends, anomalies, and provide actionable recommendations based on the summary provided.
-           The analysis should be thorough and insightful.
+        Please provide a professional dashboard configuration and a deep business analysis.
         
-        Return ONLY the JSON object matching the DashboardConfig interface.
+        The configuration MUST include:
+        1. title: A descriptive, professional title for the dashboard.
+        2. kpis: Up to 4 numeric column names.
+        3. charts: Up to 4 chart objects with type ('bar', 'line', or 'pie'), xAxis, yAxis, and title.
+        4. writtenAnalysis: A comprehensive, professional business report in Arabic (باللغة العربية الفصحى) including ملخص تنفيذي, النتائج الرئيسية, تحليل الانحرافات, التوصيات الاستراتيجية, and الخاتمة.
       `;
 
       const response = await ai.models.generateContent({
@@ -156,16 +149,11 @@ export default function App() {
         }
       });
 
-      const configJson = JSON.parse(response.text);
+      const configJson = JSON.parse(response.text || '{}');
       setConfig(configJson);
     } catch (error: any) {
       console.error("AI Analysis failed", error);
-      
-      if (error.message === "API_KEY_MISSING") {
-        toast.error("Gemini API Key is missing. Please configure it in the settings or .env file.");
-      } else {
-        toast.error("AI analysis failed. Using fallback layout.");
-      }
+      toast.error(`AI analysis failed: ${error.message}`);
 
       // Fallback: simple heuristic
       const numericCols = cols.filter(c => c.type === 'number').map(c => c.name);
@@ -189,11 +177,15 @@ export default function App() {
   const getChartData = (xAxis: string, yAxis: string) => {
     const map = new Map<string, number>();
     data.forEach(row => {
-      const xVal = String(row[xAxis] || 'Unknown');
-      const yVal = Number(row[yAxis] || 0);
-      map.set(xVal, (map.get(xVal) || 0) + yVal);
+      const xVal = String(row[xAxis] ?? 'Unknown');
+      const yVal = Number(row[yAxis]);
+      const safeYVal = isNaN(yVal) ? 0 : yVal;
+      map.set(xVal, (map.get(xVal) || 0) + safeYVal);
     });
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).slice(0, 15);
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => !isNaN(item.value))
+      .slice(0, 15);
   };
 
   const filteredData = useMemo(() => {
@@ -204,6 +196,17 @@ export default function App() {
       )
     );
   }, [data, searchTerm]);
+
+  const downloadAnalysis = () => {
+    if (!config?.writtenAnalysis) return;
+    const element = document.createElement("a");
+    const file = new Blob([config.writtenAnalysis], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = `${config.title || 'analysis'}_report.txt`;
+    document.body.appendChild(element);
+    element.click();
+    toast.success("Analysis report downloaded.");
+  };
 
   const clearData = () => {
     setData([]);
@@ -316,8 +319,10 @@ export default function App() {
               {/* KPIs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {config?.kpis.map((kpi, idx) => {
-                  const total = data.reduce((acc, row) => acc + Number(row[kpi] || 0), 0);
-                  const avg = total / data.length;
+                  const numericValues = data.map(row => Number(row[kpi])).filter(val => !isNaN(val));
+                  const total = numericValues.reduce((acc, val) => acc + val, 0);
+                  const avg = numericValues.length > 0 ? total / numericValues.length : 0;
+                  
                   return (
                     <Card key={idx} className="border-none shadow-sm overflow-hidden group hover:shadow-md transition-shadow duration-300">
                       <div className="h-1 w-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -326,9 +331,9 @@ export default function App() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-black text-slate-900">
-                          {total > 1000000 ? `${(total/1000000).toFixed(1)}M` : total.toLocaleString()}
+                          {isNaN(total) ? "0" : (total > 1000000 ? `${(total/1000000).toFixed(1)}M` : total.toLocaleString())}
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-medium italic">Avg: {avg.toFixed(1)}</p>
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium italic">Avg: {isNaN(avg) ? "0.0" : avg.toFixed(1)}</p>
                       </CardContent>
                     </Card>
                   );
@@ -419,18 +424,54 @@ export default function App() {
                 </TabsContent>
 
                 <TabsContent value="analysis">
-                  <Card className="border-none shadow-sm overflow-hidden">
-                    <CardHeader className="bg-indigo-600 text-white">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5" />
-                        <CardTitle>AI Written Analysis</CardTitle>
+                  <Card className="border-none shadow-sm overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-900 text-white p-8">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-indigo-500 p-2 rounded-lg">
+                            <Sparkles className="h-6 w-6 text-white" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-2xl font-bold">التقرير التحليلي الذكي</CardTitle>
+                            <CardDescription className="text-slate-400">تحليل معمق وتوصيات استراتيجية مدعومة بالذكاء الاصطناعي</CardDescription>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          onClick={downloadAnalysis}
+                          className="bg-white/10 border-white/20 hover:bg-white/20 text-white gap-2"
+                        >
+                          <FileText className="h-4 w-4" />
+                          تحميل التقرير
+                        </Button>
                       </div>
-                      <CardDescription className="text-indigo-100">Deep insights and recommendations generated by Gemini</CardDescription>
                     </CardHeader>
-                    <CardContent className="pt-8 pb-12 px-8">
-                      <div className="prose prose-indigo max-w-none">
-                        <div className="whitespace-pre-wrap text-slate-700 leading-relaxed text-lg text-right" dir="rtl">
-                          {config?.writtenAnalysis || "Analysis is being generated..."}
+                    <CardContent className="p-0">
+                      <div className="max-w-4xl mx-auto py-12 px-6 md:px-12">
+                        <div className="bg-slate-50 rounded-2xl p-8 md:p-12 border border-slate-100 shadow-inner">
+                          <div className="prose prose-slate max-w-none">
+                            <div className="whitespace-pre-wrap text-slate-800 leading-relaxed text-lg text-right font-medium" dir="rtl">
+                              {config?.writtenAnalysis || "جاري توليد التحليل..."}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="p-6 bg-indigo-50 rounded-xl border border-indigo-100">
+                            <TrendingUp className="h-8 w-8 text-indigo-600 mb-4" />
+                            <h4 className="font-bold text-indigo-900 mb-2">رؤى استراتيجية</h4>
+                            <p className="text-sm text-indigo-700/80">تحليل الاتجاهات المستقبلية بناءً على الأنماط الحالية في البيانات.</p>
+                          </div>
+                          <div className="p-6 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <BarChart3 className="h-8 w-8 text-emerald-600 mb-4" />
+                            <h4 className="font-bold text-emerald-900 mb-2">دقة إحصائية</h4>
+                            <p className="text-sm text-emerald-700/80">استخدام مقاييس الانحراف المعياري والمتوسطات لضمان دقة النتائج.</p>
+                          </div>
+                          <div className="p-6 bg-amber-50 rounded-xl border border-amber-100">
+                            <BrainCircuit className="h-8 w-8 text-amber-600 mb-4" />
+                            <h4 className="font-bold text-amber-900 mb-2">ذكاء اصطناعي</h4>
+                            <p className="text-sm text-amber-700/80">معالجة متقدمة للبيانات باستخدام نماذج Gemini 1.5 Flash.</p>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
